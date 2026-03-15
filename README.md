@@ -1,93 +1,290 @@
 # SIU Digital Certificate
 
+Hệ thống cấp và xác thực chứng chỉ số cho trường đại học — tương tự mô hình Coursera.
 
+---
 
-## Getting started
+## Mục tiêu
 
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
+Cho phép trường phát hành, quản lý và xác thực chứng chỉ điện tử cho nhiều hoạt động:
 
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
+- ✅ Hoàn thành khóa học
+- ✅ Tham gia workshop / sự kiện
+- ✅ Kết quả kỳ thi / kiểm tra
+- ✅ Đào tạo nội bộ
 
-## Add your files
+Mỗi chứng chỉ có mã ID duy nhất và trang xác thực công khai. Chứng chỉ PDF nhúng QR code dẫn đến trang verify.
 
-- [ ] [Create](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#create-a-file) or [upload](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#upload-a-file) files
-- [ ] [Add files using the command line](https://docs.gitlab.com/ee/gitlab-basics/add-file.html#add-a-file-using-the-command-line) or push an existing Git repository with the following command:
+---
+
+## Tech Stack
+
+| Layer | Technology |
+|-------|-----------|
+| Backend | Python 3.11 + FastAPI |
+| ORM | SQLAlchemy 2 |
+| Database | PostgreSQL |
+| Migrations | Alembic |
+| Auth | JWT (python-jose) + bcrypt (passlib) |
+| PDF | ReportLab |
+| QR Code | qrcode[pil] |
+| Batch | CSV / Excel (openpyxl) |
+
+---
+
+## Cấu trúc thư mục
 
 ```
-cd existing_repo
-git remote add origin https://gitlab.siu.edu.vn/ailab_staff/siu-digital-certificate.git
-git branch -M main
-git push -uf origin main
+siu-digital-certificate/
+├── app/
+│   ├── api/v1/
+│   │   ├── endpoints/
+│   │   │   ├── auth.py          # Login, refresh, me
+│   │   │   ├── organizations.py # Quản lý tổ chức
+│   │   │   ├── users.py         # Quản lý người dùng
+│   │   │   ├── templates.py     # Mẫu chứng chỉ
+│   │   │   ├── certificates.py  # Cấp / Thu hồi / Thay thế chứng chỉ
+│   │   │   ├── batches.py       # Cấp hàng loạt
+│   │   │   └── verify.py        # Xác thực công khai (no auth)
+│   │   └── router.py
+│   ├── core/
+│   │   ├── config.py            # Settings (Pydantic)
+│   │   ├── deps.py              # FastAPI dependencies
+│   │   └── security.py          # JWT + bcrypt
+│   ├── db/
+│   │   ├── base.py              # SQLAlchemy Base
+│   │   ├── mixins.py            # UUID + Timestamp mixins
+│   │   └── session.py           # DB engine + SessionLocal
+│   ├── models/                  # SQLAlchemy models
+│   ├── schemas/                 # Pydantic request/response schemas
+│   ├── services/
+│   │   ├── cert_code.py         # Sinh mã chứng chỉ XXXX-XXXX-XXXX
+│   │   ├── qr_service.py        # Tạo QR code PNG
+│   │   ├── pdf_service.py       # Render PDF từ template layout JSON
+│   │   ├── certificate_service.py # Logic cấp chứng chỉ
+│   │   ├── batch_service.py     # Xử lý batch CSV/Excel
+│   │   ├── storage_service.py   # Lưu file lên disk
+│   │   └── log_service.py       # Ghi audit log
+│   └── main.py
+├── alembic/                     # DB migrations
+├── uploads/                     # (auto-created) PDF, QR, backgrounds
+├── seed.py                      # Tạo dữ liệu mẫu ban đầu
+├── docs/
+│   └── batch_sample.csv         # CSV mẫu cho batch upload
+├── requirements.txt
+└── .env.example
 ```
 
-## Integrate with your tools
+---
 
-- [ ] [Set up project integrations](https://gitlab.siu.edu.vn/ailab_staff/siu-digital-certificate/-/settings/integrations)
+## Hướng dẫn cài đặt
 
-## Collaborate with your team
+### Yêu cầu
 
-- [ ] [Invite team members and collaborators](https://docs.gitlab.com/ee/user/project/members/)
-- [ ] [Create a new merge request](https://docs.gitlab.com/ee/user/project/merge_requests/creating_merge_requests.html)
-- [ ] [Automatically close issues from merge requests](https://docs.gitlab.com/ee/user/project/issues/managing_issues.html#closing-issues-automatically)
-- [ ] [Enable merge request approvals](https://docs.gitlab.com/ee/user/project/merge_requests/approvals/)
-- [ ] [Set auto-merge](https://docs.gitlab.com/ee/user/project/merge_requests/merge_when_pipeline_succeeds.html)
+- Python 3.11+
+- PostgreSQL 14+
 
-## Test and Deploy
+### 1. Clone & tạo môi trường
 
-Use the built-in continuous integration in GitLab.
+```bash
+git clone <repo-url>
+cd siu-digital-certificate
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
 
-- [ ] [Get started with GitLab CI/CD](https://docs.gitlab.com/ee/ci/quick_start/index.html)
-- [ ] [Analyze your code for known vulnerabilities with Static Application Security Testing (SAST)](https://docs.gitlab.com/ee/user/application_security/sast/)
-- [ ] [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/ee/topics/autodevops/requirements.html)
-- [ ] [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/ee/user/clusters/agent/)
-- [ ] [Set up protected environments](https://docs.gitlab.com/ee/ci/environments/protected_environments.html)
+### 2. Cấu hình môi trường
 
-***
+```bash
+cp .env.example .env
+# Chỉnh sửa .env với thông tin database và secret key của bạn
+```
 
-# Editing this README
+Các biến quan trọng trong `.env`:
 
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thanks to [makeareadme.com](https://www.makeareadme.com/) for this template.
+| Biến | Mô tả |
+|------|--------|
+| `DATABASE_URL` | PostgreSQL connection string |
+| `SECRET_KEY` | Secret key cho JWT (generate random dài) |
+| `PUBLIC_BASE_URL` | URL công khai của server (dùng trong QR code) |
+| `UPLOAD_DIR` | Thư mục lưu file (PDF, QR, backgrounds) |
 
-## Suggestions for a good README
+### 3. Chạy migration
 
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
+```bash
+alembic upgrade head
+```
 
-## Name
-Choose a self-explaining name for your project.
+### 4. Seed dữ liệu ban đầu
 
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
+```bash
+python seed.py
+# Tạo: Organization "SIU" + user admin@siu.edu.vn / Admin@123
+```
 
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
+### 5. Khởi động server
 
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
+```bash
+uvicorn app.main:app --reload --port 8000
+```
 
-## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
+Truy cập: http://localhost:8000/docs (Swagger UI)
 
-## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
+---
 
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
+## API Overview
 
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
+Tất cả API đều có prefix `/api/v1`.
 
-## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
+### Authentication
 
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
+| Method | Path | Mô tả |
+|--------|------|--------|
+| POST | `/auth/login` | Đăng nhập → nhận access+refresh token |
+| POST | `/auth/refresh` | Làm mới access token |
+| GET | `/auth/me` | Thông tin user hiện tại |
 
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
+### Organizations (super_admin only)
 
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
+| Method | Path | Mô tả |
+|--------|------|--------|
+| GET | `/organizations` | Danh sách tổ chức |
+| POST | `/organizations` | Tạo tổ chức mới |
+| GET | `/organizations/{id}` | Chi tiết tổ chức |
+| PATCH | `/organizations/{id}` | Cập nhật tổ chức |
 
-## License
-For open source projects, say how it is licensed.
+### Users
 
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+| Method | Path | Mô tả |
+|--------|------|--------|
+| GET | `/users` | Danh sách users |
+| POST | `/users` | Tạo user mới |
+| GET | `/users/{id}` | Chi tiết user |
+| PATCH | `/users/{id}` | Cập nhật user |
+| DELETE | `/users/{id}` | Vô hiệu hóa user |
+
+### Templates (Mẫu chứng chỉ)
+
+| Method | Path | Mô tả |
+|--------|------|--------|
+| GET | `/templates` | Danh sách templates |
+| POST | `/templates` | Tạo template |
+| GET | `/templates/{id}` | Chi tiết template |
+| PATCH | `/templates/{id}` | Cập nhật template |
+| POST | `/templates/{id}/background` | Upload ảnh nền |
+
+**Cấu trúc `layout_json`** — mảng các elements:
+
+```json
+{
+  "elements": [
+    {
+      "type": "text",
+      "key": "recipient_name",
+      "x": 297, "y": 100,
+      "font": "Helvetica-Bold",
+      "font_size": 32,
+      "color": [30, 30, 30],
+      "align": "center"
+    },
+    {
+      "type": "text",
+      "key": "title",
+      "x": 297, "y": 140,
+      "font": "Helvetica",
+      "font_size": 20,
+      "color": [80, 80, 80],
+      "align": "center"
+    },
+    {
+      "type": "qr",
+      "x": 370, "y": 220, "size": 40
+    }
+  ]
+}
+```
+
+> Tọa độ tính bằng mm từ góc trên-trái. A4 landscape: 420mm × 297mm.
+
+### Certificates (Chứng chỉ)
+
+| Method | Path | Mô tả |
+|--------|------|--------|
+| POST | `/certificates` | Cấp 1 chứng chỉ |
+| GET | `/certificates` | Danh sách chứng chỉ |
+| GET | `/certificates/{id}` | Chi tiết chứng chỉ |
+| POST | `/certificates/{id}/revoke` | Thu hồi |
+| POST | `/certificates/{id}/replace` | Thay thế (tạo cert mới) |
+| GET | `/certificates/{id}/pdf` | Download PDF |
+
+### Batches (Cấp hàng loạt)
+
+| Method | Path | Mô tả |
+|--------|------|--------|
+| POST | `/batches` | Upload CSV/Excel → cấp batch |
+| GET | `/batches` | Danh sách batches |
+| GET | `/batches/{id}` | Trạng thái batch |
+
+CSV mẫu: `docs/batch_sample.csv`
+
+### Verify (Xác thực — Public)
+
+| Method | Path | Auth |
+|--------|------|------|
+| GET | `/verify/{cert_code}` | **Không cần đăng nhập** |
+
+Đây là endpoint được nhúng trong QR code trên PDF. Trả về toàn bộ thông tin xác thực.
+
+---
+
+## Roles & Phân quyền
+
+| Role | Quyền |
+|------|-------|
+| `super_admin` | Toàn quyền — quản lý mọi org, user, template, cert |
+| `org_admin` | Quản lý trong org của mình: users, templates, certs |
+| `issuer` | Chỉ cấp chứng chỉ và đọc trong org của mình |
+
+---
+
+## Luồng hoạt động
+
+### Cấp chứng chỉ đơn lẻ
+
+```
+Issuer → POST /certificates
+    → sinh cert_code (XXXX-XXXX-XXXX)
+    → save Certificate record
+    → generate QR code PNG (verify URL)
+    → render PDF (template layout + cert data + QR)
+    → save PDF file
+    → write audit log (event: issued)
+    → return CertRead
+```
+
+### Xác thực QR
+
+```
+Người xem quét QR → GET /verify/{cert_code}
+    → lookup Certificate
+    → log VerifySession + CertificateLog
+    → return VerifyResult (tên, chứng chỉ, đơn vị, ngày, trạng thái)
+```
+
+---
+
+## Phát triển
+
+### Tạo Alembic migration mới
+
+```bash
+alembic revision --autogenerate -m "mô tả thay đổi"
+alembic upgrade head
+```
+
+### Chạy với reload
+
+```bash
+uvicorn app.main:app --reload --port 8000
+```
