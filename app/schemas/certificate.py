@@ -16,6 +16,8 @@ class CertIssueRequest(BaseModel):
     issued_at: Optional[datetime] = None  # defaults to now if not provided
     batch_id: Optional[UUID] = None
     organization_id: Optional[UUID] = None
+    decision_id: Optional[UUID] = None
+    registry_number: Optional[str] = None
 
 
 class CertRevokeRequest(BaseModel):
@@ -50,6 +52,8 @@ class CertRead(BaseModel):
     expires_at: Optional[datetime]
     pdf_url: Optional[str]
     batch_id: Optional[UUID]
+    decision_id: Optional[UUID]
+    registry_number: Optional[str]
     issued_at: datetime
     created_at: datetime
 

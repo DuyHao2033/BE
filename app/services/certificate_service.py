@@ -20,7 +20,7 @@ from app.services import storage_service, log_service
 
 def _build_cert_data(cert: Certificate) -> dict:
     """Flatten certificate fields into a dict for PDF rendering."""
-    return {
+    data = {
         "cert_code": cert.cert_code,
         "recipient_name": cert.recipient_name,
         "recipient_email": cert.recipient_email or "",
@@ -29,7 +29,36 @@ def _build_cert_data(cert: Certificate) -> dict:
         "issued_at": cert.issued_at.strftime("%d/%m/%Y"),
         "expires_at": cert.expires_at.strftime("%d/%m/%Y") if cert.expires_at else "",
         "custom_data": cert.custom_data,
+        "registry_number": cert.registry_number or "",
+        # Dynamic placeholders support
+        "certificate": {
+            "serial": cert.cert_code,
+            "registry_number": cert.registry_number or "",
+        }
     }
+    
+    if cert.decision:
+        data["decision_number"] = cert.decision.decision_number
+        data["decision_date"] = cert.decision.decision_date.strftime("%d/%m/%Y")
+        data["decision"] = {
+            "number": cert.decision.decision_number,
+            "date": cert.decision.decision_date.strftime("%d/%m/%Y"),
+        }
+    else:
+        data["decision_number"] = ""
+        data["decision_date"] = ""
+        data["decision"] = {
+            "number": "",
+            "date": "",
+        }
+    
+    # Merge custom_data into top-level for easier access
+    # We allow custom_data to override standard fields to give users full control over display values (e.g. custom date strings)
+    if cert.custom_data:
+        for k, v in cert.custom_data.items():
+            data[k] = v
+        
+    return data
 
 
 def issue_certificate(
@@ -83,6 +112,8 @@ def issue_certificate(
         expires_at=payload.expires_at,
         issued_at=issued_at,
         batch_id=batch_id,
+        decision_id=payload.decision_id,
+        registry_number=payload.registry_number,
         status="active",
     )
     db.add(cert)

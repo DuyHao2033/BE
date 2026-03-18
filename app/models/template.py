@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 
 from sqlalchemy import String, Text, Boolean, TIMESTAMP, ForeignKey
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 
 from app.db.base import Base
@@ -17,6 +17,14 @@ class Template(Base, UUIDMixin, TimestampMixin):
         ForeignKey("organizations.id"),
         nullable=True
     )
+
+    certificate_type_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("certificate_types.id"),
+        nullable=False
+    )
+
+    certificate_type: Mapped["CertificateType"] = relationship()
 
     name: Mapped[str] = mapped_column(String(255), nullable=False)
 

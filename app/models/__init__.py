@@ -5,3 +5,5 @@ from .certificate import Certificate
 from .certificate_batch import CertificateBatch
 from .certificate_log import CertificateLog
 from .verify_session import VerifySession
+from .certificate_type import CertificateType
+from .certificate_decision import CertificateDecision

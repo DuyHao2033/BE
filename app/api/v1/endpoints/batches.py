@@ -7,12 +7,14 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, B
 from sqlalchemy.orm import Session
 
 from app.core.deps import get_db, require_roles
+from app.models.certificate import Certificate
 from app.models.certificate_batch import CertificateBatch
 from app.models.organization import Organization
 from app.models.user import User
 from app.models.template import Template
 from app.schemas.batch import BatchRead
-from app.services.batch_service import process_batch
+from app.schemas.certificate import CertRead
+from app.services.batch_service import process_batch_task
 from app.services.storage_service import save_upload
 
 router = APIRouter(prefix="/batches", tags=["Batches"])
@@ -39,6 +41,8 @@ async def create_batch(
     file: UploadFile = File(...),
     name: str = Form(...),
     template_id: UUID = Form(...),
+    decision_id: UUID = Form(None),
+    registry_start_number: int = Form(None),
     description: str = Form(None),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles("super_admin", "org_admin", "issuer")),
@@ -76,6 +80,8 @@ async def create_batch(
         name=name,
         description=description,
         source_file_url=source_url,
+        decision_id=decision_id,
+        registry_start_number=registry_start_number,
         total_count=0,
         success_count=0,
         failed_count=0,
@@ -89,12 +95,11 @@ async def create_batch(
 
     # Run batch processing as background task
     background_tasks.add_task(
-        process_batch,
-        db=db,
-        batch=batch,
+        process_batch_task,
+        batch_id=batch.id,
         file_content=content,
         filename=file.filename or "batch.csv",
-        organization=org,
+        organization_id=org.id,
         issued_by_id=current_user.id,
         actor_ip=actor_ip,
     )
@@ -127,3 +132,109 @@ def get_batch(
     if current_user.role != "super_admin" and batch.organization_id != current_user.organization_id:
         raise HTTPException(status_code=403, detail="Access denied")
     return batch
+
+
+@router.get("/{batch_id}/certificates", response_model=list[CertRead])
+def list_batch_certificates(
+    batch_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles("super_admin", "org_admin", "issuer")),
+    skip: int = 0,
+    limit: int = 50,
+):
+    batch = db.query(CertificateBatch).filter(CertificateBatch.id == batch_id).first()
+    if not batch:
+        raise HTTPException(status_code=404, detail="Batch not found")
+    if current_user.role != "super_admin" and batch.organization_id != current_user.organization_id:
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    q = db.query(Certificate).filter(Certificate.batch_id == batch_id)
+    q = q.order_by(Certificate.issued_at.desc())
+    return q.offset(skip).limit(limit).all()
+
+
+@router.get("/templates/{template_id}/excel-template")
+def download_excel_template(
+    template_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles("super_admin", "org_admin", "issuer")),
+):
+    """Generate and download an Excel template based on the certificate template fields."""
+    template = db.query(Template).filter(Template.id == template_id).first()
+    if not template:
+        raise HTTPException(status_code=404, detail="Template not found")
+    
+    if current_user.role != "super_admin" and template.organization_id != current_user.organization_id:
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    import openpyxl
+    from io import BytesIO
+    from fastapi.responses import StreamingResponse
+    import re
+    from urllib.parse import quote
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Batch Issue Template"
+
+    # Core system fields
+    headers = ["recipient_name", "recipient_email", "recipient_id", "title", "expires_at", "registry_number"]
+    
+    # Extract placeholders from layout_json
+    placeholders = set()
+    layout = template.layout_json
+    if isinstance(layout, dict) and isinstance(layout.get("elements"), list):
+        for el in layout["elements"]:
+            if isinstance(el, dict) and el.get("type") == "text" and el.get("content"):
+                content = el["content"]
+                # Find matches for {{field}}
+                matches = re.findall(r"\{\{([^{}]+)\}\}", content)
+                for m in matches:
+                    field = m.strip()
+                    # Skip system fields that are already in headers or special ones
+                    if field in ["recipient_name", "recipient_email", "recipient_id", "title", "issued_at", "expires_at"]:
+                        continue
+                    if field.startswith("decision.") or field == "certificate.registry_number" or field == "certificate.serial":
+                        continue
+                    placeholders.add(field)
+
+    # Also add fields explicitly defined in template.custom_fields
+    if isinstance(template.custom_fields, list):
+        for f in template.custom_fields:
+            if isinstance(f, str):
+                placeholders.add(f)
+            elif isinstance(f, dict) and f.get("key"):
+                placeholders.add(f["key"])
+
+    # Add custom fields from elements (prefixed with custom_)
+    for ph in sorted(list(placeholders)):
+        headers.append(f"custom_{ph}")
+
+    ws.append(headers)
+    
+    # Add a sample row (optional)
+    # ws.append(["Nguyen Van A", "a@example.com", "ID123", "Chứng nhận hoàn thành", "2025-12-31", "", ""])
+
+    # Auto-adjust column width
+    for i, column_cells in enumerate(ws.columns, start=1):
+        ws.column_dimensions[openpyxl.utils.get_column_letter(i)].width = 20
+
+    out = BytesIO()
+    wb.save(out)
+    out.seek(0)
+
+    # Proper header encoding for non-ASCII filenames (RFC 5987)
+    ascii_filename = "".join(c for c in template.name if ord(c) < 128).replace(' ', '_')
+    if not ascii_filename:
+        ascii_filename = "template"
+    ascii_filename = f"{ascii_filename}.xlsx"
+    
+    encoded_filename = quote(f"template_{template.name.replace(' ', '_')}.xlsx")
+    
+    return StreamingResponse(
+        out,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={
+            "Content-Disposition": f'attachment; filename="{ascii_filename}"; filename*=UTF-8\'\'{encoded_filename}'
+        }
+    )

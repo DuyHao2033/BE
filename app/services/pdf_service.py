@@ -233,6 +233,30 @@ def _get_font_name(font: str) -> str:
     return "Roboto-Regular" if "Roboto-Regular" in REGISTERED_FONTS else "Helvetica"
 
 
+import re
+
+def _resolve_placeholders(text: str, context: dict[str, Any]) -> str:
+    """
+    Resolves placeholders in format {{path.to.value}} using context dict.
+    Supports nested access like {{decision.number}}.
+    """
+    if not text or "{{" not in text:
+        return text
+
+    def replacer(match):
+        path = match.group(1).strip()
+        parts = path.split('.')
+        val = context
+        for part in parts:
+            if isinstance(val, dict) and part in val:
+                val = val[part]
+            else:
+                return match.group(0) # Keep placeholder if not found
+        return str(val) if val is not None else ""
+
+    return re.sub(r'\{\{(.*?)\}\}', replacer, text)
+
+
 def render_certificate_pdf(
     layout_json: dict[str, Any],
     page_size: str,
@@ -300,15 +324,21 @@ def render_certificate_pdf(
             # Priority logic for resolving text:
             raw_value = None
             key = el.get("key")
+            is_variable = el.get("is_variable", True)
             
-            if key:
+            # If it's a simple variable, try the key first
+            if is_variable and key:
                 raw_value = _resolve_value(key, cert_data)
+            
+            # If not a variable (it's a block with placeholders) or key resolution failed, use content
             if raw_value is None:
-                raw_value = el.get("value")
-            if raw_value is None:
-                raw_value = el.get("content")
+                raw_value = el.get("content") or el.get("value")
             
             text = str(raw_value or "")
+            
+            # Resolve placeholders in text
+            text = _resolve_placeholders(text, cert_data)
+            
             font_requested = el.get("font", "Helvetica-Bold")
             font_name = _get_font_name(font_requested)
             font_size = el.get("font_size", 24)
@@ -318,18 +348,31 @@ def render_certificate_pdf(
             c.setFont(font_name, font_size)
             c.setFillColorRGB(color[0] / 255, color[1] / 255, color[2] / 255)
 
-            # Draw using the robust helper
-            _draw_text_robust(
-                c=c,
-                x=x_mm * mm,
-                y_top=y,
-                text=text,
-                font_name=font_name,
-                font_size=font_size,
-                align=align,
-                container_width=w_mm * mm,
-                container_height=h_mm * mm
-            )
+            # Support line breaks
+            lines = text.split('\n')
+            total_lines = len(lines)
+            
+            # If multiple lines, we need to adjust y for each line
+            # Default line leading is roughly 1.2 * font_size
+            leading = font_size * 1.2
+            
+            for i, line in enumerate(lines):
+                # Calculate y offset for this line
+                # We start from y (top) and move down
+                line_y = y - (i * leading)
+                
+                # Draw using the robust helper
+                _draw_text_robust(
+                    c=c,
+                    x=x_mm * mm,
+                    y_top=line_y,
+                    text=line,
+                    font_name=font_name,
+                    font_size=font_size,
+                    align=align,
+                    container_width=w_mm * mm,
+                    container_height=h_mm * mm / total_lines if total_lines > 1 else h_mm * mm
+                )
 
         elif el_type == "qr":
             size = size_mm * mm

@@ -89,6 +89,12 @@ def create_template(
     template_data = payload.model_dump()
     template_data.pop("organization_id", None)
 
+    # Verify certificate_type_id exists
+    from app.models.certificate_type import CertificateType
+    cert_type = db.query(CertificateType).filter(CertificateType.id == payload.certificate_type_id).first()
+    if not cert_type:
+        raise HTTPException(status_code=400, detail="Invalid certificate_type_id")
+
     tmpl = Template(
         organization_id=org_id,
         created_by=current_user.id,
@@ -124,6 +130,11 @@ def update_template(
         raise HTTPException(status_code=403, detail="Access denied")
 
     for field, value in payload.model_dump(exclude_unset=True).items():
+        if field == "certificate_type_id":
+            from app.models.certificate_type import CertificateType
+            cert_type = db.query(CertificateType).filter(CertificateType.id == value).first()
+            if not cert_type:
+                raise HTTPException(status_code=400, detail="Invalid certificate_type_id")
         setattr(tmpl, field, value)
 
     db.commit()

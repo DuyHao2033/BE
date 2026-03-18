@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 
 from sqlalchemy import String, Text, Integer, TIMESTAMP, ForeignKey
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 
 from app.db.base import Base
@@ -28,6 +28,13 @@ class CertificateBatch(Base, UUIDMixin):
         UUID(as_uuid=True),
         ForeignKey("users.id")
     )
+
+    decision_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("certificate_decisions.id")
+    )
+
+    decision: Mapped["CertificateDecision"] = relationship()
 
     name: Mapped[str] = mapped_column(String(255), nullable=False)
 
@@ -58,6 +65,8 @@ class CertificateBatch(Base, UUIDMixin):
     completed_at: Mapped[datetime | None] = mapped_column(
         TIMESTAMP(timezone=True)
     )
+
+    registry_start_number: Mapped[int | None] = mapped_column(Integer)
 
     created_at: Mapped[datetime] = mapped_column(
         TIMESTAMP(timezone=True)

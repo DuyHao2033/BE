@@ -1,8 +1,27 @@
 from uuid import UUID
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Any
 
 from pydantic import BaseModel
+
+
+class CertificateTypeSummary(BaseModel):
+    id: UUID
+    code: str
+    name: str
+    description: Optional[str] = None
+    field_schema: dict[str, Any] = {}
+
+    model_config = {"from_attributes": True}
+
+
+class DecisionSummary(BaseModel):
+    id: UUID
+    decision_number: str
+    decision_date: datetime
+    title: Optional[str] = None
+
+    model_config = {"from_attributes": True}
 
 
 class VerifyResult(BaseModel):
@@ -18,3 +37,7 @@ class VerifyResult(BaseModel):
     revoked_reason: Optional[str]
     replaced_by: Optional[UUID]
     cert_id: Optional[UUID]
+    pdf_url: Optional[str] = None
+    certificate_type: Optional[CertificateTypeSummary] = None
+    decision: Optional[DecisionSummary] = None
+    custom_data: dict[str, Any] = {}

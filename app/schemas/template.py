@@ -15,6 +15,7 @@ class TemplateCreate(BaseModel):
     background_url: Optional[str] = None
     layout_json: dict[str, Any] = {}
     custom_fields: list[dict[str, Any]] = []
+    certificate_type_id: UUID
 
 
 class TemplateUpdate(BaseModel):
@@ -26,6 +27,7 @@ class TemplateUpdate(BaseModel):
     background_url: Optional[str] = None
     layout_json: Optional[dict[str, Any]] = None
     custom_fields: Optional[list[dict[str, Any]]] = None
+    certificate_type_id: Optional[UUID] = None
     is_active: Optional[bool] = None
 
 
@@ -41,6 +43,7 @@ class TemplateRead(BaseModel):
     layout_json: dict[str, Any]
     custom_fields: list[Any]
     is_active: bool
+    certificate_type_id: UUID
     created_by: Optional[UUID]
     created_at: datetime
     model_config = {"from_attributes": True}

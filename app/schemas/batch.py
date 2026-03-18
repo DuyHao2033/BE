@@ -9,12 +9,16 @@ class BatchCreate(BaseModel):
     name: str
     description: Optional[str] = None
     template_id: UUID
+    decision_id: Optional[UUID] = None
+    registry_start_number: Optional[int] = None
 
 
 class BatchRead(BaseModel):
     id: UUID
     organization_id: UUID
     template_id: UUID
+    decision_id: Optional[UUID]
+    registry_start_number: Optional[int]
     created_by: Optional[UUID]
     name: str
     description: Optional[str]

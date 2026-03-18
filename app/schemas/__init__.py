@@ -5,6 +5,8 @@ from app.schemas.template import TemplateCreate, TemplateRead, TemplateUpdate
 from app.schemas.certificate import CertIssueRequest, CertRead, CertRevokeRequest, CertReplaceRequest
 from app.schemas.batch import BatchCreate, BatchRead
 from app.schemas.verify import VerifyResult
+from app.schemas.certificate_type import CertificateTypeCreate, CertificateTypeRead, CertificateTypeUpdate
+from app.schemas.certificate_decision import CertificateDecisionCreate, CertificateDecisionRead, CertificateDecisionUpdate
 
 __all__ = [
     "LoginRequest", "TokenResponse", "RefreshRequest",
@@ -14,4 +16,6 @@ __all__ = [
     "CertIssueRequest", "CertRead", "CertRevokeRequest", "CertReplaceRequest",
     "BatchCreate", "BatchRead",
     "VerifyResult",
+    "CertificateTypeCreate", "CertificateTypeRead", "CertificateTypeUpdate",
+    "CertificateDecisionCreate", "CertificateDecisionRead", "CertificateDecisionUpdate",
 ]
