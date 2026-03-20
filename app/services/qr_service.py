@@ -9,7 +9,7 @@ def generate_qr_bytes(cert_code: str) -> bytes:
     """
     Generate a QR code PNG image (bytes) pointing to the public verify URL.
     """
-    verify_url = f"{settings.PUBLIC_BASE_URL}/api/v1/verify/{cert_code}"
+    verify_url = f"{settings.FRONTEND_URL.rstrip('/')}/verify/{cert_code}/"
 
     qr = qrcode.QRCode(
         version=None,

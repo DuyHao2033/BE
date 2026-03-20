@@ -17,8 +17,11 @@ class Settings(BaseSettings):
     # File storage
     UPLOAD_DIR: str = "./uploads"
 
-    # Public base URL (used in QR code verify link)
+    # Public base URL (used in API responses)
     PUBLIC_BASE_URL: str = "http://localhost:8000"
+
+    # Frontend base URL (used in QR code verify link)
+    FRONTEND_URL: str = "http://localhost:3000/certificate"
 
     # Google Auth
     GOOGLE_CLIENT_ID: str = ""
