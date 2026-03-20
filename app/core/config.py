@@ -20,8 +20,25 @@ class Settings(BaseSettings):
     # Public base URL (used in QR code verify link)
     PUBLIC_BASE_URL: str = "http://localhost:8000"
 
+    # Google Auth
+    GOOGLE_CLIENT_ID: str = ""
+    GOOGLE_CLIENT_SECRET: str = ""
+    OAUTH_ALLOWED_DOMAINS: str = "siu.edu.vn"
+
+    # LDAP Auth
+    LDAP_SERVER_HOST: str = "127.0.0.1"
+    LDAP_SERVER_PORT: int = 389
+    LDAP_USE_TLS: bool = False
+    LDAP_VALIDATE_CERT: bool = False
+    LDAP_APP_DN: str = ""
+    LDAP_APP_PASSWORD: str = ""
+    LDAP_SEARCH_BASE: str = ""
+    LDAP_ATTRIBUTE_FOR_MAIL: str = "mail"
+    LDAP_ATTRIBUTE_FOR_USERNAME: str = "uid"
+
     class Config:
         env_file = ".env"
+        extra = "ignore"
 
 
 settings = Settings()

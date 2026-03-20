@@ -11,8 +11,9 @@ from app.core.security import (
     decode_token,
 )
 from app.models.user import User
-from app.schemas.auth import LoginRequest, RefreshRequest, TokenResponse
+from app.schemas.auth import LoginRequest, RefreshRequest, TokenResponse, GoogleLoginRequest, LDAPLoginRequest
 from app.schemas.user import UserRead
+from app.services.auth_service import AuthService
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
 
@@ -30,6 +31,38 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)):
             detail="Invalid email or password",
         )
 
+    token_data = {"sub": str(user.id), "role": user.role}
+    return TokenResponse(
+        access_token=create_access_token(token_data),
+        refresh_token=create_refresh_token(token_data),
+    )
+
+
+@router.post("/google", response_model=TokenResponse)
+def google_login(payload: GoogleLoginRequest, db: Session = Depends(get_db)):
+    """Authenticate via Google ID token."""
+    id_info = AuthService.verify_google_token(payload.id_token)
+    email = id_info.get("email")
+    full_name = id_info.get("name", "Google User")
+    
+    user = AuthService.get_or_create_external_user(db, email, full_name)
+    
+    token_data = {"sub": str(user.id), "role": user.role}
+    return TokenResponse(
+        access_token=create_access_token(token_data),
+        refresh_token=create_refresh_token(token_data),
+    )
+
+
+@router.post("/ldap", response_model=TokenResponse)
+def ldap_login(payload: LDAPLoginRequest, db: Session = Depends(get_db)):
+    """Authenticate via LDAP credentials."""
+    ldap_info = AuthService.verify_ldap_credentials(payload.username_or_email, payload.password)
+    email = ldap_info.get("email")
+    full_name = ldap_info.get("full_name")
+    
+    user = AuthService.get_or_create_external_user(db, email, full_name)
+    
     token_data = {"sub": str(user.id), "role": user.role}
     return TokenResponse(
         access_token=create_access_token(token_data),
