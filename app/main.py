@@ -8,6 +8,38 @@ from fastapi.staticfiles import StaticFiles
 from app.core.config import settings
 from app.api.v1.router import api_router
 
+from app.db.session import SessionLocal # Hoặc đường dẫn session của bạn
+from app.models.user import User        # Nhớ kiểm tra đường dẫn Model User
+from app.core.security import get_password_hash # Hàm hash mật khẩu của bạn
+
+@app.get("/api/v1/init-admin", tags=["Setup"])
+def init_admin():
+    db = SessionLocal()
+    try:
+        # 1. Kiểm tra xem user admin đã tồn tại chưa
+        existing_user = db.query(User).filter(User.username == "admin").first()
+        if existing_user:
+            return {"message": "Admin already exists!"}
+
+        # 2. Tạo tài khoản admin mới
+        # Lưu ý: Kiểm tra các trường (fields) trong Model User của bạn
+        new_admin = User(
+            username="admin",
+            email="admin@siu.edu.vn",
+            hashed_password=get_password_hash("Admin@123"), # Dùng đúng hàm hash của dự án
+            full_name="System Admin",
+            is_active=True,
+            is_superuser=True # Nếu dự án của bạn có dùng quyền này
+        )
+        
+        db.add(new_admin)
+        db.commit()
+        return {"message": "Admin created successfully! User: admin, Pass: Admin@123"}
+    except Exception as e:
+        db.rollback()
+        return {"error": str(e)}
+    finally:
+        db.close()
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s %(levelname)s [%(name)s] %(message)s",
