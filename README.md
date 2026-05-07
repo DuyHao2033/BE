@@ -12,8 +12,10 @@ Cho phép trường phát hành, quản lý và xác thực chứng chỉ điệ
 - ✅ Tham gia workshop / sự kiện
 - ✅ Kết quả kỳ thi / kiểm tra
 - ✅ Đào tạo nội bộ
-
-Mỗi chứng chỉ có mã ID duy nhất và trang xác thực công khai. Chứng chỉ PDF nhúng QR code dẫn đến trang verify.
+Mỗi chứng chỉ có:
+  Mã ID duy nhất
+  File PDF
+  QR Code dẫn đến trang xác thực công khai
 
 ---
 
@@ -79,58 +81,50 @@ siu-digital-certificate/
 
 ## Hướng dẫn cài đặt
 
-### Yêu cầu
+Yêu cầu môi trường
 
-- Python 3.11+
-- PostgreSQL 14+
+⚠️ QUAN TRỌNG:
 
-### 1. Clone & tạo môi trường
-
-```bash
+Python 3.11 (không dùng 3.8 hoặc 3.14)
+PostgreSQL 14+
+Node.js 18+
+---
+1. Clone project
 git clone <repo-url>
 cd siu-digital-certificate
+2. Tạo môi trường ảo
 python -m venv .venv
-source .venv/bin/activate
+.venv\Scripts\activate
+3. Cài thư viện
 pip install -r requirements.txt
-```
-
-### 2. Cấu hình môi trường
-
-```bash
+4. Cấu hình môi trường
 cp .env.example .env
-# Chỉnh sửa .env với thông tin database và secret key của bạn
-```
 
-Các biến quan trọng trong `.env`:
+👉 chỉnh file .env:
 
-| Biến | Mô tả |
-|------|--------|
-| `DATABASE_URL` | PostgreSQL connection string |
-| `SECRET_KEY` | Secret key cho JWT (generate random dài) |
-| `PUBLIC_BASE_URL` | URL công khai của server (dùng trong QR code) |
-| `UPLOAD_DIR` | Thư mục lưu file (PDF, QR, backgrounds) |
-
-### 3. Chạy migration
-
-```bash
-alembic upgrade head
-```
-
-### 4. Seed dữ liệu ban đầu
-
-```bash
+DATABASE_URL=postgresql://postgres:123456@localhost:5433/siu_cert_db
+SECRET_KEY=your_secret_key
+PUBLIC_BASE_URL=http://localhost:8000
+FRONTEND_URL=http://localhost:3000
+UPLOAD_DIR=uploads
+5. Chạy migration
+python -m alembic upgrade head
+6. Seed dữ liệu
 python seed.py
-# Tạo: Organization "SIU" + user admin@siu.edu.vn / Admin@123
-```
 
-### 5. Khởi động server
+👉 tài khoản mặc định:
 
-```bash
-uvicorn app.main:app --reload --port 8000
-```
-
-Truy cập: http://localhost:8000/docs (Swagger UI)
-
+admin@siu.edu.vn
+Admin@123
+7. Chạy backend
+uvicorn app.main:app --reload
+8. Chạy frontend
+cd ../siu-digital-certificate-frontend
+npm install
+npm run dev
+🌐 Truy cập hệ thống
+Backend API: http://localhost:8000/docs
+Frontend: http://localhost:3000
 ---
 
 ## API Overview
@@ -249,6 +243,11 @@ CSV mẫu: `docs/batch_sample.csv`
 ---
 
 ## Luồng hoạt động
+1. Cấp chứng chỉ (Issue Certificate)
+
+Quy trình cấp chứng chỉ cho một cá nhân:
+
+
 
 ### Cấp chứng chỉ đơn lẻ
 
