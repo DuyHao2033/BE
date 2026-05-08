@@ -42,11 +42,13 @@ def create_default_admin():
     db = SessionLocal()
     try:
         if not db.query(User).filter(User.email == settings.ADMIN_EMAIL).first():
+            # Ensure password is truncated to 72 bytes for bcrypt
+            admin_password = str(settings.ADMIN_PASSWORD or "Admin@123")[:72]
             admin_user = User(
                 email=settings.ADMIN_EMAIL,
                 full_name=settings.ADMIN_FULL_NAME,
                 role="super_admin",
-                password_hash=hash_password(settings.ADMIN_PASSWORD),
+                password_hash=hash_password(admin_password),
                 is_active=True,
             )
             db.add(admin_user)
@@ -57,6 +59,7 @@ def create_default_admin():
     except Exception as e:
         db.rollback()
         logging.error(f"Failed to create default admin: {e}")
+        logging.error(traceback.format_exc())
     finally:
         db.close()
 
