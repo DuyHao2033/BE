@@ -5,12 +5,13 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
+# Import các thành phần hệ thống
 from app.core.config import settings
 from app.api.v1.router import api_router
-from app.db.session import SessionLocal 
+from app.db.session import SessionLocal, engine  # Thêm engine để tạo bảng
 from app.models.user import User         
-# ĐÃ SỬA: Import đúng tên hàm hash_password từ security.py
 from app.core.security import hash_password 
+from app.db.base import Base # Cần thiết để nhận diện cấu hình bảng
 
 # 1. Cấu hình Logging
 logging.basicConfig(
@@ -18,7 +19,7 @@ logging.basicConfig(
     format="%(asctime)s %(levelname)s [%(name)s] %(message)s",
 )
 
-# 2. Khởi tạo FastAPI app (Phải nằm TRƯỚC khi định nghĩa các route)
+# 2. Khởi tạo FastAPI app
 app = FastAPI(
     title=settings.APP_NAME,
     version="1.0.0",
@@ -26,6 +27,12 @@ app = FastAPI(
     docs_url="/docs",
     redoc_url="/redoc",
 )
+
+# --- TỰ ĐỘNG TẠO BẢNG (DATABASE MIGRATION) ---
+# Dòng này giúp giải quyết lỗi "relation users does not exist" 
+# bằng cách tự động tạo các bảng vào Neon nếu chúng chưa tồn tại.
+Base.metadata.create_all(bind=engine)
+# ---------------------------------------------
 
 # 3. Cấu hình CORS
 app.add_middleware(
@@ -36,23 +43,21 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# 4. Định nghĩa Route init-admin (Đã đưa xuống dưới lệnh khởi tạo app)
+# 4. Định nghĩa Route khởi tạo Admin
 @app.get("/api/v1/init-admin", tags=["Setup"])
 def init_admin():
     db = SessionLocal()
     try:
-        # 1. Kiểm tra theo Email vì Model của bạn không có cột 'username'
+        # Kiểm tra theo Email vì Model của bạn không có cột 'username'
         existing_user = db.query(User).filter(User.email == "admin@siu.edu.vn").first()
         if existing_user:
             return {"message": "Admin already exists!"}
 
-        # 2. Tạo tài khoản admin mới theo đúng các cột trong Model User
+        # Tạo tài khoản admin mới khớp 100% với Model User
         new_admin = User(
             email="admin@siu.edu.vn",
             full_name="System Admin",
-            # Trong Model của bạn cột này tên là password_hash
             password_hash=hash_password("Admin@123"), 
-            # Role bạn định nghĩa là 'super_admin'
             role="super_admin", 
             is_active=True
         )
@@ -62,12 +67,12 @@ def init_admin():
         return {"message": "Admin created successfully! Email: admin@siu.edu.vn, Pass: Admin@123"}
     except Exception as e:
         db.rollback()
-        logging.error(f"Error creating admin: {str(e)}") # Log lỗi ra terminal để dễ debug
+        logging.error(f"Error creating admin: {str(e)}")
         return {"error": str(e)}
     finally:
         db.close()
 
-# 5. Static file serving (uploads & fonts)
+# 5. Cấu hình Static files (uploads & fonts)
 uploads_dir = settings.UPLOAD_DIR.lstrip("./")
 os.makedirs(uploads_dir, exist_ok=True)
 app.mount("/uploads", StaticFiles(directory=uploads_dir), name="uploads")
