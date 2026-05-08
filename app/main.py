@@ -48,26 +48,30 @@ app.add_middleware(
 def init_admin():
     db = SessionLocal()
     try:
-        # Kiểm tra theo Email vì Model của bạn không có cột 'username'
+        # Kiểm tra xem đã có admin chưa
         existing_user = db.query(User).filter(User.email == "admin@siu.edu.vn").first()
         if existing_user:
             return {"message": "Admin already exists!"}
 
-        # Tạo tài khoản admin mới khớp 100% với Model User
+        # CHÚ Ý: Đảm bảo hash_password nhận vào một chuỗi text bình thường
+        raw_password = "Admin@123"
+        hashed = hash_password(raw_password)
+
         new_admin = User(
             email="admin@siu.edu.vn",
             full_name="System Admin",
-            password_hash=hash_password("Admin@123"), 
+            password_hash=hashed, # Lưu chuỗi đã băm vào đây
             role="super_admin", 
             is_active=True
         )
         
         db.add(new_admin)
         db.commit()
-        return {"message": "Admin created successfully! Email: admin@siu.edu.vn, Pass: Admin@123"}
+        return {"message": "Admin created successfully!", "email": "admin@siu.edu.vn"}
     except Exception as e:
         db.rollback()
-        logging.error(f"Error creating admin: {str(e)}")
+        # In lỗi chi tiết ra console của Render để kiểm tra
+        print(f"CRITICAL ERROR: {str(e)}") 
         return {"error": str(e)}
     finally:
         db.close()
