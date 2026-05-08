@@ -107,6 +107,12 @@ SECRET_KEY=your_secret_key
 PUBLIC_BASE_URL=http://localhost:8000
 FRONTEND_URL=http://localhost:3000
 UPLOAD_DIR=uploads
+# Optional initial admin account for deploys
+ADMIN_EMAIL=admin@siu.edu.vn
+ADMIN_PASSWORD=Admin@123
+ADMIN_FULL_NAME=System Admin
+ADMIN_AUTO_SEED=true
+
 5. Chạy migration
 python -m alembic upgrade head
 6. Seed dữ liệu
@@ -116,6 +122,8 @@ python seed.py
 
 admin@siu.edu.vn
 Admin@123
+
+Nếu bạn deploy backend lên Render, app sẽ tự động tạo tài khoản admin khi khởi động nếu chưa có tài khoản này.
 7. Chạy backend
 uvicorn app.main:app --reload
 8. Chạy frontend

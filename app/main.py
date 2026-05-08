@@ -34,6 +34,32 @@ app = FastAPI(
 Base.metadata.create_all(bind=engine)
 # ---------------------------------------------
 
+@app.on_event("startup")
+def create_default_admin():
+    if not settings.ADMIN_AUTO_SEED:
+        return
+
+    db = SessionLocal()
+    try:
+        if not db.query(User).filter(User.email == settings.ADMIN_EMAIL).first():
+            admin_user = User(
+                email=settings.ADMIN_EMAIL,
+                full_name=settings.ADMIN_FULL_NAME,
+                role="super_admin",
+                password_hash=hash_password(settings.ADMIN_PASSWORD),
+                is_active=True,
+            )
+            db.add(admin_user)
+            db.commit()
+            logging.info(f"Created default super_admin: {settings.ADMIN_EMAIL}")
+        else:
+            logging.info("Default admin already exists, skipping creation.")
+    except Exception as e:
+        db.rollback()
+        logging.error(f"Failed to create default admin: {e}")
+    finally:
+        db.close()
+
 # 3. Cấu hình CORS
 app.add_middleware(
     CORSMiddleware,
@@ -49,25 +75,25 @@ def init_admin():
     db = SessionLocal()
     try:
         # Kiểm tra xem đã có admin chưa
-        existing_user = db.query(User).filter(User.email == "admin@siu.edu.vn").first()
+        existing_user = db.query(User).filter(User.email == settings.ADMIN_EMAIL).first()
         if existing_user:
             return {"message": "Admin already exists!"}
 
         # CHÚ Ý: Đảm bảo hash_password nhận vào một chuỗi text bình thường
-        raw_password = "Admin@123"
+        raw_password = settings.ADMIN_PASSWORD
         hashed = hash_password(raw_password)
 
         new_admin = User(
-            email="admin@siu.edu.vn",
-            full_name="System Admin",
+            email=settings.ADMIN_EMAIL,
+            full_name=settings.ADMIN_FULL_NAME,
             password_hash=hashed, # Lưu chuỗi đã băm vào đây
-            role="super_admin", 
+            role="super_admin",
             is_active=True
         )
         
         db.add(new_admin)
         db.commit()
-        return {"message": "Admin created successfully!", "email": "admin@siu.edu.vn"}
+        return {"message": "Admin created successfully!", "email": settings.ADMIN_EMAIL}
     except Exception as e:
         db.rollback()
         # In lỗi chi tiết ra console của Render để kiểm tra

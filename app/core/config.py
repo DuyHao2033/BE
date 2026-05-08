@@ -39,6 +39,12 @@ class Settings(BaseSettings):
     LDAP_ATTRIBUTE_FOR_MAIL: str = "mail"
     LDAP_ATTRIBUTE_FOR_USERNAME: str = "uid"
 
+    # Initial admin seed
+    ADMIN_EMAIL: str = "admin@siu.edu.vn"
+    ADMIN_PASSWORD: str = "Admin@123"
+    ADMIN_FULL_NAME: str = "System Admin"
+    ADMIN_AUTO_SEED: bool = True
+
     class Config:
         env_file = ".env"
         extra = "ignore"
