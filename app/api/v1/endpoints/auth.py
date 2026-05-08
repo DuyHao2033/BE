@@ -1,4 +1,7 @@
 """Auth endpoints — login, refresh token, get current user."""
+import logging
+import traceback
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from jose import JWTError
 from sqlalchemy.orm import Session
@@ -20,22 +23,32 @@ router = APIRouter(prefix="/auth", tags=["Auth"])
 
 @router.post("/login", response_model=TokenResponse)
 def login(payload: LoginRequest, db: Session = Depends(get_db)):
-    user: User | None = db.query(User).filter(
-        User.email == payload.email,
-        User.is_active == True,
-    ).first()
+    try:
+        user: User | None = db.query(User).filter(
+            User.email == payload.email,
+            User.is_active == True,
+        ).first()
 
-    if user is None or not verify_password(payload.password, user.password_hash):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid email or password",
+        if user is None or not verify_password(payload.password, user.password_hash):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid email or password",
+            )
+
+        token_data = {"sub": str(user.id), "role": user.role}
+        return TokenResponse(
+            access_token=create_access_token(token_data),
+            refresh_token=create_refresh_token(token_data),
         )
-
-    token_data = {"sub": str(user.id), "role": user.role}
-    return TokenResponse(
-        access_token=create_access_token(token_data),
-        refresh_token=create_refresh_token(token_data),
-    )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error("Login failed: %s", e)
+        logging.error(traceback.format_exc())
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Internal server error",
+        )
 
 
 @router.post("/google", response_model=TokenResponse)
